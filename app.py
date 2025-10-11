@@ -212,6 +212,24 @@ with tab1:
             st.info(f"💡 แนวทางทางการแพทย์เบื้องต้น: {advice_map[label]}")
             st.caption(f"🧠 ความมั่นใจของระบบ: {probs[pred_class]*100:.1f}%")
 
+            
+# ----------------------------------------------------------
+# 🗂️ Save prediction log for dashboard summary
+# ----------------------------------------------------------
+            log_file = "prediction_log.csv"
+            new_row = pd.DataFrame([{
+                "timestamp": pd.Timestamp.now(),
+                "age": age,
+                "sex": sex,
+                "predicted_severity": label
+            }])
+            if os.path.exists(log_file):
+                new_row.to_csv(log_file, mode="a", index=False, header=False)
+            else:
+                new_row.to_csv(log_file, index=False)
+            st.success("📁 บันทึกผลการประเมินเข้าสู่ระบบ Dashboard แล้ว")
+
+
 # ----------------------------------------------------------
 # 👥 TAB 2 — K-Means
 # ----------------------------------------------------------
