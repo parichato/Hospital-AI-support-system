@@ -15,7 +15,7 @@ from catboost import CatBoostClassifier
 # ----------------------------------------------------------
 # ⚙️ Page Setup
 # ----------------------------------------------------------
-st.set_page_config(page_title="🏥 AI Injury Severity", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="Hospital AI Decision Support", page_icon="🏥", layout="wide")
 st.title("🏥 Hospital AI Decision Support — Injury Severity (CatBoost)")
 st.caption("ใส่ข้อมูลผู้บาดเจ็บ ระบบจะประเมินระดับความรุนแรงและแนะนำขั้นตอนถัดไป")
 
