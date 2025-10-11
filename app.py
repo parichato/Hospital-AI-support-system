@@ -15,43 +15,36 @@ from catboost import CatBoostClassifier
 # ----------------------------------------------------------
 # ⚙️ Page Setup
 # ----------------------------------------------------------
-st.set_page_config(page_title="Hospital AI Decision Support", page_icon="🏥", layout="wide")
+st.set_page_config(page_title="AI Injury Severity", page_icon="🏥", layout="wide")
 st.title("🏥 Hospital AI Decision Support — Injury Severity (CatBoost)")
 st.caption("ใส่ข้อมูลผู้บาดเจ็บ ระบบจะประเมินระดับความรุนแรงและแนะนำขั้นตอนถัดไป")
 
 # ----------------------------------------------------------
-# 📦 Load Model + Encoders + Features (แบบไม่เด่น)
+# 📦 Load Model + Encoders + Features
 # ----------------------------------------------------------
 @st.cache_resource
 def load_all():
-    msgs = []
-
     try:
         model = joblib.load("predict_catboost_multi.pkl")
-        msgs.append("✅ Loaded: predict_catboost_multi.pkl")
+        st.success("✅ Loaded: predict_catboost_multi.pkl")
     except:
         model = None
-        msgs.append("❌ ไม่พบ predict_catboost_multi.pkl")
+        st.error("❌ ไม่พบ predict_catboost_multi.pkl")
 
     try:
         encoders = joblib.load("encoders_multi.pkl")
-        msgs.append("✅ Loaded: encoders_multi.pkl")
+        st.success("✅ Loaded: encoders_multi.pkl")
     except:
         encoders = None
-        msgs.append("⚠️ ไม่พบ encoders_multi.pkl")
+        st.warning("⚠️ ไม่พบ encoders_multi.pkl")
 
     try:
         with open("features_multi.json", "r") as f:
             features = json.load(f)
-        msgs.append("✅ Loaded: features_multi.json")
+        st.success("✅ Loaded: features_multi.json")
     except:
         features = []
-        msgs.append("⚠️ ไม่พบ features_multi.json")
-
-    # แสดงผลแบบเรียบใน expander
-    with st.expander("📂 รายการไฟล์ที่โหลดแล้ว", expanded=False):
-        for m in msgs:
-            st.caption(m)
+        st.warning("⚠️ ไม่พบ features_multi.json")
 
     return model, encoders, features
 
@@ -138,7 +131,7 @@ with st.form("input_form"):
     submit = st.form_submit_button("🔎 ประเมินระดับความเสี่ยง")
 
 # ----------------------------------------------------------
-# 🔄 Preprocess Function
+# 🔄 Preprocess Function (Safe Encode)
 # ----------------------------------------------------------
 def preprocess_input(data_dict):
     df = pd.DataFrame([data_dict])
@@ -172,15 +165,18 @@ def preprocess_input(data_dict):
         else:
             df[col] = 0
 
-    df["age_group_60plus"] = (df["age"] >= 60).astype(int)
-    df["risk_count"] = df[["risk1","risk2","risk3","risk4","risk5"]].sum(axis=1)
-    df["night_flag"] = df["is_night"].astype(int)
+    if "age_group_60plus" not in df.columns:
+        df["age_group_60plus"] = (df["age"] >= 60).astype(int)
+    if "risk_count" not in df.columns:
+        df["risk_count"] = df[["risk1","risk2","risk3","risk4","risk5"]].sum(axis=1)
+    if "night_flag" not in df.columns:
+        df["night_flag"] = df["is_night"].astype(int)
 
     df = df.reindex(columns=features, fill_value=0)
     return df
 
 # ----------------------------------------------------------
-# 🧠 Run Prediction (Text Only)
+# 🧠 Run Prediction (CatBoost)
 # ----------------------------------------------------------
 if submit:
     input_data = {
@@ -209,54 +205,124 @@ if submit:
         pred_class = int(np.argmax(probs))
         label = severity_map.get(pred_class, "ไม่ทราบ")
 
-        # ----------------------------------------------------------
-        # 🎨 ส่วนตกแต่งการแสดงผล (ไม่แตะ logic การทำนาย)
-        # ----------------------------------------------------------
-        bg_color = {
-            "เสี่ยงน้อย": "#104d1f",      # เขียวเข้ม
-            "เสี่ยงปานกลาง": "#4d3d00",  # เหลืองเข้ม
-            "เสี่ยงมาก": "#4d0000"        # แดงเข้ม
-        }
-        emoji = {
-            "เสี่ยงน้อย": "✅",
-            "เสี่ยงปานกลาง": "⚠️",
-            "เสี่ยงมาก": "🚨"
-        }
-
-        next_steps = {
-            "เสี่ยงน้อย": "สามารถดูแลในพื้นที่ได้ ให้คำแนะนำผู้บาดเจ็บ และประเมินซ้ำทุก 30 นาที",
-            "เสี่ยงปานกลาง": "ควรส่งต่อห้องฉุกเฉินหรือรังสีวิทยาเพื่อตรวจเพิ่มเติม ตรวจชีพจรและการหายใจ",
-            "เสี่ยงมาก": "แจ้งทีม ER / Trauma ทันที เตรียม Oxygen, IV Line, และประเมิน GCS"
-        }
-
-        # 🩺 กล่องหลักแสดงระดับความเสี่ยง
-        st.markdown(
-            f"""
-            <div style="
-                background-color:{bg_color[label]};
-                padding:25px;
-                border-radius:12px;
-                text-align:center;
-                box-shadow:0px 0px 10px rgba(0,0,0,0.4);
-                margin-top:10px;
-                margin-bottom:15px;
-            ">
-                <h2 style="color:white;">
-                    {emoji[label]} ระดับความเสี่ยงที่คาดการณ์: <b>{label}</b>
-                </h2>
-                <p style="color:#d0e6ff; font-size:18px; margin-top:10px;">
-                    💡 <b>คำแนะนำเบื้องต้น:</b> {advice_map[label]}
-                </p>
-                <p style="color:#f5f5f5; font-size:16px;">
-                    🩹 <b>ขั้นตอนต่อไปที่แนะนำ:</b> {next_steps[label]}
-                </p>
-                <p style="color:#ccc; font-size:15px; margin-top:5px;">
-                    🧠 ความมั่นใจของโมเดล: {probs[pred_class]*100:.1f}%
-                </p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        st.markdown(f"### 🩺 ระดับความเสี่ยงที่คาดการณ์: **{label}**")
+        st.info(f"💡 คำแนะนำเบื้องต้น: {advice_map[label]}")
+        st.caption(f"🧠 ความมั่นใจของโมเดล: {probs[pred_class]*100:.1f}%")
 
     else:
         st.error("⚠️ ไม่พบโมเดล ไม่สามารถทำนายได้")
+
+# ==========================================================
+# 🧩 HOSPITAL AI FOR BUSINESS DASHBOARD (K-Means + Apriori + Summary)
+# ==========================================================
+st.markdown("---")
+st.header("🏥 Hospital AI for Business — Data-Driven Insights")
+
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🚑 Real-Time Prediction",
+    "📊 Cluster Analysis (K-Means)",
+    "🔍 Risk Pattern Mining (Apriori)",
+    "📈 Summary Report"
+])
+
+# ----------------------------------------------------------
+# TAB 1 — CatBoost
+# ----------------------------------------------------------
+with tab1:
+    st.markdown("ระบบประเมินความรุนแรงจากโมเดล **CatBoost** ใช้งานได้ตามปกติ ✅")
+
+# ----------------------------------------------------------
+# TAB 2 — K-Means
+# ----------------------------------------------------------
+with tab2:
+    st.subheader("📊 วิเคราะห์กลุ่มผู้บาดเจ็บ (K-Means Clustering)")
+    try:
+        kmeans = joblib.load("kmeans_cluster_model.pkl")
+        scaler = joblib.load("scaler_cluster.pkl")
+        st.success("✅ Loaded: kmeans_cluster_model.pkl & scaler_cluster.pkl")
+    except:
+        st.warning("⚠️ ไม่พบไฟล์โมเดล K-Means หรือ Scaler")
+        kmeans, scaler = None, None
+
+    if model and kmeans and scaler and submit:
+        X_scaled = scaler.transform(X_input)
+        cluster_label = int(kmeans.predict(X_scaled)[0])
+
+        st.markdown(f"### 👥 ผู้บาดเจ็บนี้อยู่ในกลุ่มที่ **{cluster_label}**")
+        cluster_desc = {
+            0: "ผู้สูงอายุ / ลื่นล้มในบ้าน → เสี่ยงต่ำ",
+            1: "วัยทำงาน / ขับรถกลางคืน / เมา → เสี่ยงสูง",
+            2: "เด็ก / โรงเรียน / กีฬา → เสี่ยงปานกลาง",
+            3: "แรงงาน / ก่อสร้าง → เสี่ยงสูง",
+            4: "ทั่วไป / ไม่มีปัจจัยเด่น → เสี่ยงต่ำ"
+        }
+        st.info(cluster_desc.get(cluster_label, "ยังไม่มีรายละเอียดกลุ่มนี้"))
+    else:
+        st.info("🕐 เมื่อกรอกข้อมูลและประเมินแล้ว ผลกลุ่มจะปรากฏที่นี่")
+
+# ----------------------------------------------------------
+# TAB 3 — Apriori
+# ----------------------------------------------------------
+with tab3:
+    st.subheader("🔍 วิเคราะห์ความสัมพันธ์ของปัจจัยเสี่ยง (Apriori Association Rules)")
+    try:
+        rules_minor = joblib.load("apriori_rules_minor.pkl")
+        rules_severe = joblib.load("apriori_rules_severe.pkl")
+        rules_fatal = joblib.load("apriori_rules_fatal.pkl")
+        st.success("✅ Loaded Apriori Rules")
+    except:
+        st.warning("⚠️ ไม่พบไฟล์กฎ Apriori")
+        rules_minor = rules_severe = rules_fatal = None
+
+    if model and submit:
+        if label == "เสี่ยงน้อย" and rules_minor is not None:
+            df_rules = rules_minor.head(5)
+        elif label == "เสี่ยงปานกลาง" and rules_severe is not None:
+            df_rules = rules_severe.head(5)
+        elif label == "เสี่ยงมาก" and rules_fatal is not None:
+            df_rules = rules_fatal.head(5)
+        else:
+            df_rules = pd.DataFrame()
+
+        if not df_rules.empty:
+            st.dataframe(df_rules[["antecedents","consequents","support","confidence","lift"]])
+        else:
+            st.info("📭 ยังไม่มีกฎสำหรับประเภทนี้")
+
+# ----------------------------------------------------------
+# TAB 4 — Summary Report (Logging + Dashboard)
+# ----------------------------------------------------------
+with tab4:
+    st.subheader("📈 สรุปผลการประเมินย้อนหลัง (AI Summary Dashboard)")
+    if submit and model is not None:
+        result_dict = {
+            "timestamp": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "age": age, "sex": sex,
+            "is_night": int(is_night),
+            "head_injury": int(head_injury),
+            "mass_casualty": int(mass_casualty),
+            "predicted_severity": label,
+            "cluster_label": cluster_label if "cluster_label" in locals() else None,
+        }
+        df_result = pd.DataFrame([result_dict])
+        if os.path.exists("results_log.csv"):
+            df_result.to_csv("results_log.csv", mode="a", header=False, index=False)
+        else:
+            df_result.to_csv("results_log.csv", index=False)
+        st.success("🧾 บันทึกผลแล้ว (results_log.csv)")
+
+    if os.path.exists("results_log.csv"):
+        df_log = pd.read_csv("results_log.csv")
+        st.metric("จำนวนเคสทั้งหมด", f"{len(df_log):,}")
+        st.bar_chart(df_log["predicted_severity"].value_counts())
+    else:
+        st.info("ยังไม่มีข้อมูลในระบบ — กรุณาประเมินอย่างน้อย 1 ครั้ง")
+st.markdown("---")
+st.subheader("🧹 จัดการข้อมูลบันทึก")
+
+if st.button("🗑️ ล้างประวัติทั้งหมด"):
+    if os.path.exists("results_log.csv"):
+        os.remove("results_log.csv")
+        st.success("✅ ล้างข้อมูลบันทึกทั้งหมดเรียบร้อยแล้ว!")
+    else:
+        st.info("⚠️ ยังไม่มีไฟล์บันทึกในระบบ")
