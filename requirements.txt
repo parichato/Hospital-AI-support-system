@@ -1,0 +1,10 @@
+
+
+streamlit
+pandas
+scikit-learn
+catboost
+joblib
+mlxtend
+
+
