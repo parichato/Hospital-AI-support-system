@@ -303,7 +303,7 @@ with tab2:
     try:
         kmeans = joblib.load("kmeans_cluster_model.pkl")
         scaler = joblib.load("scaler_cluster.pkl")
-        st.success("✅ Loaded: K-Means Cluster Model & Scaler")
+        
     except:
         st.warning("⚠️ ไม่พบไฟล์โมเดล K-Means หรือ Scaler")
         kmeans, scaler = None, None
@@ -367,7 +367,7 @@ with tab3:
         rules_minor = joblib.load("apriori_rules_minor.pkl")
         rules_severe = joblib.load("apriori_rules_severe.pkl")
         rules_fatal = joblib.load("apriori_rules_fatal.pkl")
-        st.success("✅ Loaded: Apriori Risk Patterns")
+        
     except:
         st.warning("⚠️ ไม่พบไฟล์กฎ Apriori")
         rules_minor = rules_severe = rules_fatal = None
