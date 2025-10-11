@@ -465,63 +465,9 @@ with tab4:
 
     st.markdown("---")
 
+    
     # ======================================================
-    # ⚠️ 4. Top Risk Factors
-    # ======================================================
-    st.markdown("### ⚠️ ปัจจัยเสี่ยงที่พบมากที่สุด (Top Risk Factors)")
-    risk_cols = ["risk1","risk2","risk3","risk4","risk5"]
-    if all(col in df_log.columns for col in risk_cols):
-        risk_counts = df_log[risk_cols].sum().sort_values(ascending=False)
-        fig, ax = plt.subplots(figsize=(6,3))
-        sns.barplot(x=risk_counts.index, y=risk_counts.values, palette="autumn", ax=ax)
-        ax.set_title("ปัจจัยเสี่ยงที่พบบ่อยที่สุด", color="white", fontsize=11)
-        ax.set_ylabel("จำนวนครั้ง")
-        ax.set_xlabel("")
-        st.pyplot(fig)
-    else:
-        st.caption("ยังไม่มีข้อมูลเพียงพอในการวิเคราะห์ปัจจัยเสี่ยง")
-
-    st.markdown("---")
-
-    # ======================================================
-    # 🏥 5. Province Distribution
-    # ======================================================
-    st.markdown("### 🏥 จังหวัดที่พบเหตุบ่อยที่สุด")
-    if "prov" in df_log.columns and not df_log.empty:
-        top_prov = df_log["prov"].value_counts().head(5)
-        fig, ax = plt.subplots(figsize=(5,3))
-        sns.barplot(x=top_prov.values, y=top_prov.index, palette="cool", ax=ax)
-        ax.set_xlabel("จำนวนเคส")
-        ax.set_ylabel("จังหวัด")
-        ax.set_title("Top 5 จังหวัดที่พบเหตุบ่อย", color="white", fontsize=11)
-        st.pyplot(fig)
-    else:
-        st.caption("ยังไม่มีข้อมูลจังหวัดใน log")
-
-    st.markdown("---")
-
-    # ======================================================
-    # ⏱️ 6. Accident Time Distribution
-    # ======================================================
-    st.markdown("### ⏱️ สัดส่วนช่วงเวลาที่เกิดเหตุ")
-    if "is_night" in df_log.columns:
-        df_log["time_period"] = df_log["is_night"].map({1:"กลางคืน", 0:"กลางวัน"})
-        time_counts = df_log["time_period"].value_counts()
-        fig, ax = plt.subplots(figsize=(3.5,3.5))
-        time_counts.plot.pie(
-            autopct='%1.1f%%', colors=["#1976D2","#512DA8"], startangle=90,
-            ax=ax, textprops={'color': 'white', 'fontsize': 10}
-        )
-        ax.set_ylabel("")
-        ax.set_title("ช่วงเวลาที่เกิดเหตุ", color="white", fontsize=11)
-        st.pyplot(fig)
-    else:
-        st.caption("ยังไม่มีข้อมูลช่วงเวลา")
-
-    st.markdown("---")
-
-    # ======================================================
-    # 🩺 7. Summary Insights
+    # 🩺 4. Summary Insights
     # ======================================================
     if total_cases > 0:
         st.markdown("### 🩺 Insight ทางคลินิก & ข้อเสนอเชิงกลยุทธ์")
