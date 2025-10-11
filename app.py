@@ -483,7 +483,7 @@ with tab4:
         male_ratio = (df_log["sex"] == "ชาย").mean() * 100
         female_ratio = (df_log["sex"] == "หญิง").mean() * 100
     else:
-    male_ratio = female_ratio = 0
+        male_ratio = female_ratio = 0
 
     c1.metric("จำนวนเคสทั้งหมด", f"{total_cases:,}")
     c2.metric("สัดส่วนผู้บาดเจ็บรุนแรง", f"{severe_ratio:.1f}%")
