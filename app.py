@@ -20,31 +20,38 @@ st.title("🏥 Hospital AI Decision Support — Injury Severity (CatBoost)")
 st.caption("ใส่ข้อมูลผู้บาดเจ็บ ระบบจะประเมินระดับความรุนแรงและแนะนำขั้นตอนถัดไป")
 
 # ----------------------------------------------------------
-# 📦 Load Model + Encoders + Features
+# 📦 Load Model + Encoders + Features (แบบไม่เด่น)
 # ----------------------------------------------------------
 @st.cache_resource
 def load_all():
+    msgs = []
+
     try:
         model = joblib.load("predict_catboost_multi.pkl")
-        st.success("✅ Loaded: predict_catboost_multi.pkl")
+        msgs.append("✅ Loaded: predict_catboost_multi.pkl")
     except:
         model = None
-        st.error("❌ ไม่พบ predict_catboost_multi.pkl")
+        msgs.append("❌ ไม่พบ predict_catboost_multi.pkl")
 
     try:
         encoders = joblib.load("encoders_multi.pkl")
-        st.success("✅ Loaded: encoders_multi.pkl")
+        msgs.append("✅ Loaded: encoders_multi.pkl")
     except:
         encoders = None
-        st.warning("⚠️ ไม่พบ encoders_multi.pkl")
+        msgs.append("⚠️ ไม่พบ encoders_multi.pkl")
 
     try:
         with open("features_multi.json", "r") as f:
             features = json.load(f)
-        st.success("✅ Loaded: features_multi.json")
+        msgs.append("✅ Loaded: features_multi.json")
     except:
         features = []
-        st.warning("⚠️ ไม่พบ features_multi.json")
+        msgs.append("⚠️ ไม่พบ features_multi.json")
+
+    # แสดงผลแบบเรียบใน expander
+    with st.expander("📂 รายการไฟล์ที่โหลดแล้ว", expanded=False):
+        for m in msgs:
+            st.caption(m)
 
     return model, encoders, features
 
@@ -131,12 +138,11 @@ with st.form("input_form"):
     submit = st.form_submit_button("🔎 ประเมินระดับความเสี่ยง")
 
 # ----------------------------------------------------------
-# 🔄 Preprocess Function (Safe Encode)
+# 🔄 Preprocess Function
 # ----------------------------------------------------------
 def preprocess_input(data_dict):
     df = pd.DataFrame([data_dict])
 
-    # ✅ แปลงค่าชื่อไทยกลับเป็นรหัสก่อน encode
     reverse_activity = {v: k for k, v in activity_mapping.items()}
     reverse_aplace = {v: k for k, v in aplace_mapping.items()}
     reverse_prov = {v: k for k, v in prov_mapping.items()}
@@ -148,7 +154,6 @@ def preprocess_input(data_dict):
     if df.at[0, "prov"] in reverse_prov:
         df.at[0, "prov"] = reverse_prov[df.at[0, "prov"]]
 
-    # ✅ Convert numeric & boolean
     for col in [
         "age", "sex", "is_night", "head_injury", "mass_casualty",
         "risk1", "risk2", "risk3", "risk4", "risk5",
@@ -156,7 +161,6 @@ def preprocess_input(data_dict):
     ]:
         df[col] = df[col].astype(float)
 
-    # ✅ Encode categorical safely (unchanged prediction logic)
     for col in ["activity", "aplace", "prov"]:
         val = str(df.at[0, col])
         if encoders and col in encoders:
@@ -164,35 +168,19 @@ def preprocess_input(data_dict):
             if val in le.classes_:
                 df[col] = le.transform([val])[0]
             else:
-                try:
-                    match = next(
-                        (c for c in le.classes_ if val.lower() in str(c).lower() or str(c).lower() in val.lower()),
-                        None
-                    )
-                    df[col] = le.transform([match])[0] if match else 0
-                except:
-                    df[col] = 0
+                df[col] = 0
         else:
             df[col] = 0
 
-    # ✅ engineered features (if not exist)
-    if "age_group_60plus" not in df.columns:
-        df["age_group_60plus"] = (df["age"] >= 60).astype(int)
-    if "risk_count" not in df.columns:
-        df["risk_count"] = df[["risk1","risk2","risk3","risk4","risk5"]].sum(axis=1)
-    if "night_flag" not in df.columns:
-        df["night_flag"] = df["is_night"].astype(int)
+    df["age_group_60plus"] = (df["age"] >= 60).astype(int)
+    df["risk_count"] = df[["risk1","risk2","risk3","risk4","risk5"]].sum(axis=1)
+    df["night_flag"] = df["is_night"].astype(int)
 
-    # ✅ reorder columns according to model features
-    missing_cols = [c for c in features if c not in df.columns]
-    for c in missing_cols:
-        df[c] = 0
-    df = df[features]
-
+    df = df.reindex(columns=features, fill_value=0)
     return df
 
 # ----------------------------------------------------------
-# 🧠 Run Prediction (No Graph Mode)
+# 🧠 Run Prediction (Text Only)
 # ----------------------------------------------------------
 if submit:
     input_data = {
@@ -221,10 +209,8 @@ if submit:
         pred_class = int(np.argmax(probs))
         label = severity_map.get(pred_class, "ไม่ทราบ")
 
-        # ✅ แสดงผลแบบข้อความเท่านั้น
         st.markdown(f"### 🩺 ระดับความเสี่ยงที่คาดการณ์: **{label}**")
         st.info(f"💡 คำแนะนำเบื้องต้น: {advice_map[label]}")
         st.caption(f"🧠 ความมั่นใจของโมเดล: {probs[pred_class]*100:.1f}%")
-
     else:
         st.error("⚠️ ไม่พบโมเดล ไม่สามารถทำนายได้")
