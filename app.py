@@ -15,40 +15,72 @@ import seaborn as sns
 # ----------------------------------------------------------
 # ⚙️ Page Setup
 # ----------------------------------------------------------
-st.set_page_config(page_title="AI Hospital Dashboard", page_icon="🏥", layout="wide")
-st.title("🏥 Hospital AI for Business — Data-Driven Clinical Decision Support")
-st.caption("ระบบสนับสนุนการตัดสินใจทางการแพทย์และการบริหารทรัพยากรโรงพยาบาล (AI Triage + Analytics)")
+st.set_page_config(page_title="Hospital AI Decision Support", page_icon="🏥", layout="wide")
+st.title("Hospital AI for Clinical Decision Support")
+st.caption("ระบบสนับสนุนการตัดสินใจทางการแพทย์และการบริหารทรัพยากรโรงพยาบาล")
 
 # ----------------------------------------------------------
-# 📦 Load Models
+# 📦 Load Models + Show in Expander
 # ----------------------------------------------------------
 @st.cache_resource
 def load_all():
+    msgs = []  # เก็บข้อความไว้แสดงใน expander
+
+    # 🔹 CatBoost Model
     try:
         model = joblib.load("predict_catboost_multi.pkl")
-        st.success("✅ Loaded: Clinical Severity Model (CatBoost)")
+        msgs.append("✅ predict_catboost_multi.pkl — Clinical Severity Model")
     except:
         model = None
-        st.error("❌ ไม่พบไฟล์โมเดล CatBoost")
+        msgs.append("❌ ไม่พบ predict_catboost_multi.pkl")
 
+    # 🔹 Encoders
     try:
         encoders = joblib.load("encoders_multi.pkl")
-        st.success("✅ Loaded: Encoders for Clinical Data")
+        msgs.append("✅ encoders_multi.pkl — Encoders for Clinical Data")
     except:
         encoders = None
-        st.warning("⚠️ ไม่พบ encoders_multi.pkl")
+        msgs.append("⚠️ ไม่พบ encoders_multi.pkl")
 
+    # 🔹 Features
     try:
         with open("features_multi.json", "r") as f:
             features = json.load(f)
-        st.success("✅ Loaded: Model Features Configuration")
+        msgs.append("✅ features_multi.json — Model Features Configuration")
     except:
         features = []
-        st.warning("⚠️ ไม่พบ features_multi.json")
+        msgs.append("⚠️ ไม่พบ features_multi.json")
 
-    return model, encoders, features
+    # 🔹 K-Means
+    try:
+        kmeans = joblib.load("kmeans_cluster_model.pkl")
+        scaler = joblib.load("scaler_cluster.pkl")
+        msgs.append("✅ kmeans_cluster_model.pkl / scaler_cluster.pkl — Clustering Models")
+    except:
+        kmeans = scaler = None
+        msgs.append("⚠️ ไม่พบไฟล์ K-Means / Scaler")
 
-model, encoders, features = load_all()
+    # 🔹 Apriori
+    try:
+        rules_minor = joblib.load("apriori_rules_minor.pkl")
+        rules_severe = joblib.load("apriori_rules_severe.pkl")
+        rules_fatal = joblib.load("apriori_rules_fatal.pkl")
+        msgs.append("✅ apriori_rules_[minor/severe/fatal].pkl — Risk Pattern Mining Rules")
+    except:
+        rules_minor = rules_severe = rules_fatal = None
+        msgs.append("⚠️ ไม่พบไฟล์กฎ Apriori")
+
+    # ✅ แสดงผลแบบเรียบใน expander (คุณอยากได้ตรงนี้)
+    with st.expander("📂 รายการไฟล์ที่โหลดแล้ว", expanded=False):
+        for m in msgs:
+            st.caption(m)
+
+    return model, encoders, features, kmeans, scaler, rules_minor, rules_severe, rules_fatal
+
+
+# เรียกใช้
+model, encoders, features, kmeans, scaler, rules_minor, rules_severe, rules_fatal = load_all()
+
 
 # ----------------------------------------------------------
 # 🧩 Manual Mappings
@@ -100,9 +132,9 @@ triage_color = {
 # 🩺 TAB SYSTEM
 # ==========================================================
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🧠 Clinical Risk Prediction (CatBoost)",
-    "👥 Cluster Insight (K-Means)",
-    "🧩 Risk Association (Apriori)",
+    "🧠 Clinical Risk Prediction",
+    "👥 Cluster Insight",
+    "🧩 Risk Association",
     "📊 Clinical Summary Dashboard"
 ])
 
@@ -110,7 +142,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 # 🧠 TAB 1 — CatBoost Prediction (UNCHANGED LOGIC)
 # ----------------------------------------------------------
 with tab1:
-    st.subheader("🧠 Clinical Severity Prediction (CatBoost)")
+    st.subheader("🧠 Clinical Severity Prediction")
     st.caption("ระบบประเมินระดับความรุนแรงของผู้บาดเจ็บแบบเรียลไทม์ (AI Triage System)")
 
     # ORIGINAL INPUT FORM (unchanged)
@@ -237,14 +269,14 @@ with tab1:
 # 👥 TAB 2 — K-Means Cluster Analysis (Improved)
 # ----------------------------------------------------------
 with tab2:
-    st.subheader("👥 Patient Segmentation (K-Means Clustering)")
+    st.subheader("👥 Patient Segmentation")
     st.caption("วิเคราะห์กลุ่มผู้บาดเจ็บ เพื่อใช้ในการจัดสรรทรัพยากรและการป้องกันเชิงรุก")
 
     # ------------------------------------------------------
     # 🔹 Patient Summary (ข้อมูลจากการกรอก Tab1)
     # ------------------------------------------------------
     if submit:
-        st.markdown("### 🧾 ข้อมูลผู้บาดเจ็บ (จากแบบประเมินก่อนหน้า)")
+        st.markdown("### 🧾 ข้อมูลผู้บาดเจ็บ")
         summary_cols = st.columns(3)
         summary_cols[0].metric("อายุ", f"{age} ปี")
         summary_cols[1].metric("เพศ", sex)
@@ -308,12 +340,12 @@ with tab2:
 # 🧩 TAB 3 — Apriori Risk Association (Improved Summary)
 # ----------------------------------------------------------
 with tab3:
-    st.subheader("🧩 Risk Association Analysis (Apriori Rules)")
+    st.subheader("🧩 Risk Association Analysis")
     st.caption("วิเคราะห์ความสัมพันธ์ของปัจจัยเสี่ยง เพื่อวางแผนป้องกันและสนับสนุนการตัดสินใจเชิงนโยบาย")
 
     # ✅ ส่วนสรุปข้อมูลผู้บาดเจ็บจากการประเมิน
     if submit:
-        st.markdown("### 🧾 ข้อมูลผู้บาดเจ็บ (จากแบบประเมินก่อนหน้า)")
+        st.markdown("### 🧾 ข้อมูลผู้บาดเจ็บ")
         summary_cols = st.columns(3)
         summary_cols[0].metric("อายุ", f"{age} ปี")
         summary_cols[1].metric("เพศ", sex)
@@ -438,15 +470,25 @@ with tab4:
     total_cases = len(df_log)
 
     # ======================================================
-    # 📌 2. KPI Overview
-    # ======================================================
-    st.markdown("### 💡 ภาพรวมสถานการณ์ (KPI Overview)")
-    c1, c2, c3 = st.columns(3)
-    severe_ratio = df_log["predicted_severity"].eq("เสี่ยงมาก").mean() * 100 if total_cases > 0 else 0
-    avg_age = df_log["age"].mean() if total_cases > 0 else 0
-    c1.metric("จำนวนเคสทั้งหมด", f"{total_cases:,}")
-    c2.metric("สัดส่วนผู้บาดเจ็บรุนแรง", f"{severe_ratio:.1f}%")
-    c3.metric("อายุเฉลี่ยของผู้บาดเจ็บ", f"{avg_age:.1f} ปี")
+# 📌 2. KPI Overview (Updated to show gender ratio)
+# ======================================================
+st.markdown("### 💡 ภาพรวมสถานการณ์ (KPI Overview)")
+c1, c2, c3 = st.columns(3)
+
+total_cases = len(df_log)
+severe_ratio = df_log["predicted_severity"].eq("เสี่ยงมาก").mean() * 100 if total_cases > 0 else 0
+
+# ✅ คำนวณสัดส่วนเพศ
+if total_cases > 0 and "sex" in df_log.columns:
+    male_ratio = (df_log["sex"] == "ชาย").mean() * 100
+    female_ratio = (df_log["sex"] == "หญิง").mean() * 100
+else:
+    male_ratio = female_ratio = 0
+
+c1.metric("จำนวนเคสทั้งหมด", f"{total_cases:,}")
+c2.metric("สัดส่วนผู้บาดเจ็บรุนแรง", f"{severe_ratio:.1f}%")
+c3.metric("เพศชาย : หญิง", f"{male_ratio:.1f}% : {female_ratio:.1f}%")
+
 
     # ======================================================
     # 🩸 3. Distribution by Severity (Pie Chart)
