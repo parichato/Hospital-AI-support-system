@@ -204,7 +204,7 @@ if submit:
 
     X_input = preprocess_input(input_data)
 
-        if model is not None:
+    if model is not None:
         probs = model.predict_proba(X_input)[0]
         pred_class = int(np.argmax(probs))
         label = severity_map.get(pred_class, "ไม่ทราบ")
