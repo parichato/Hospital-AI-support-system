@@ -20,70 +20,87 @@ st.title("Hospital AI for Clinical Decision Support")
 st.caption("ระบบสนับสนุนการตัดสินใจทางการแพทย์และการบริหารทรัพยากรโรงพยาบาล")
 
 # ----------------------------------------------------------
-# 📦 Load Models + Show in Expander (Clean + Stable Version)
+# 📦 Load Models + Show in Expander
 # ----------------------------------------------------------
-import os
-import time
 import joblib
 import json
 import streamlit as st
 
 @st.cache_resource
 def load_all():
-    msgs = []  # ข้อความแสดงผลใน expander
-    base_path = "."  # โฟลเดอร์หลักของโมเดล
+    msgs = []  # เก็บข้อความไว้แสดงใน expander
 
-    # -------------------------------
-    # 🔧 ตัวช่วยตรวจไฟล์ก่อนโหลด
-    # -------------------------------
-    def wait_for_file(path, timeout=10):
-        """รอจนไฟล์พร้อมก่อนโหลด"""
-        start = time.time()
-        while not os.path.exists(path):
-            if time.time() - start > timeout:
-                return False
-            time.sleep(0.5)
-        return True
+    # ------------------------------------------------------
+    # 🔹 CatBoost Model
+    # ------------------------------------------------------
+    try:
+        model = joblib.load("predict_catboost_multi.pkl")
+        msgs.append("✅ predict_catboost_multi.pkl — Clinical Severity Model")
+    except Exception:
+        model = None
+        msgs.append("❌ ไม่พบ predict_catboost_multi.pkl")
 
-    def safe_load(path, loader, name):
-        """โหลดไฟล์แบบปลอดภัย พร้อมแจ้งสถานะ"""
-        if not wait_for_file(path):
-            msgs.append(f"⚠️ {name} — not found or not ready")
-            return None
-        try:
-            obj = loader(path)
-            msgs.append(f"✅ {name} — loaded successfully")
-            return obj
-        except Exception as e:
-            msgs.append(f"❌ {name} — failed to load ({e})")
-            return None
+    # ------------------------------------------------------
+    # 🔹 Encoders
+    # ------------------------------------------------------
+    try:
+        encoders = joblib.load("encoders_multi.pkl")
+        msgs.append("✅ encoders_multi.pkl — Encoders for Clinical Data")
+    except Exception:
+        encoders = None
+        msgs.append("⚠️ ไม่พบ encoders_multi.pkl")
 
-    # -------------------------------
-    # 🔹 โหลดไฟล์แต่ละประเภท
-    # -------------------------------
-    model = safe_load(os.path.join(base_path, "predict_catboost_multi.pkl"), joblib.load, "CatBoost Model")
-    encoders = safe_load(os.path.join(base_path, "encoders_multi.pkl"), joblib.load, "Encoders")
-    features = safe_load(os.path.join(base_path, "features_multi.json"), lambda f: json.load(open(f, encoding="utf-8")), "Feature Config")
-    kmeans = safe_load(os.path.join(base_path, "kmeans_cluster_model.pkl"), joblib.load, "K-Means Model")
-    scaler = safe_load(os.path.join(base_path, "scaler_cluster.pkl"), joblib.load, "Scaler")
-    rules_minor = safe_load(os.path.join(base_path, "apriori_rules_minor.pkl"), joblib.load, "Apriori Rules (Minor)")
-    rules_severe = safe_load(os.path.join(base_path, "apriori_rules_severe.pkl"), joblib.load, "Apriori Rules (Severe)")
-    rules_fatal = safe_load(os.path.join(base_path, "apriori_rules_fatal.pkl"), joblib.load, "Apriori Rules (Fatal)")
+    # ------------------------------------------------------
+    # 🔹 Features
+    # ------------------------------------------------------
+    try:
+        with open("features_multi.json", "r", encoding="utf-8") as f:
+            features = json.load(f)
+        msgs.append("✅ features_multi.json — Model Features Configuration")
+    except Exception:
+        features = []
+        msgs.append("⚠️ ไม่พบ features_multi.json")
 
-    # -------------------------------
-    # 📋 แสดงสรุปใน expander เรียบ ๆ
-    # -------------------------------
+    # ------------------------------------------------------
+    # 🔹 K-Means + Scaler
+    # ------------------------------------------------------
+    try:
+        kmeans = joblib.load("kmeans_cluster_model.pkl")
+        scaler = joblib.load("scaler_cluster.pkl")
+        msgs.append("✅ kmeans_cluster_model.pkl / scaler_cluster.pkl — Clustering Models")
+    except Exception:
+        kmeans = scaler = None
+        msgs.append("⚠️ ไม่พบไฟล์ K-Means / Scaler")
+
+    # ------------------------------------------------------
+    # 🔹 Apriori Rules
+    # ------------------------------------------------------
+    try:
+        rules_minor = joblib.load("apriori_rules_minor.pkl")
+        rules_severe = joblib.load("apriori_rules_severe.pkl")
+        rules_fatal = joblib.load("apriori_rules_fatal.pkl")
+        msgs.append("✅ apriori_rules_[minor/severe/fatal].pkl — Risk Pattern Mining Rules")
+    except Exception:
+        rules_minor = rules_severe = rules_fatal = None
+        msgs.append("⚠️ ไม่พบไฟล์กฎ Apriori")
+
+    # ------------------------------------------------------
+    # 📋 แสดงผลแบบเรียบใน expander
+    # ------------------------------------------------------
     with st.expander("📂 รายการไฟล์ที่โหลดแล้ว", expanded=False):
         for m in msgs:
             st.caption(m)
-        st.markdown("---")
-        ready_count = sum("✅" in m for m in msgs)
-        st.write(f"**Loaded successfully:** {ready_count}/{len(msgs)} files")
 
-    # -------------------------------
-    # 🔁 ส่งค่ากลับ
-    # -------------------------------
+    # ------------------------------------------------------
+    # 🔁 Return Models
+    # ------------------------------------------------------
     return model, encoders, features, kmeans, scaler, rules_minor, rules_severe, rules_fatal
+
+
+# ----------------------------------------------------------
+# ✅ เรียกใช้
+# ----------------------------------------------------------
+model, encoders, features, kmeans, scaler, rules_minor, rules_severe, rules_fatal = load_all()
 
 # ----------------------------------------------------------
 # 🧩 Manual Mappings
