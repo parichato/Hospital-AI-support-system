@@ -511,12 +511,12 @@ with tab4:
     # ======================================================
 # 🧭 6. Insight Summary (Textual)
 # ======================================================
-if total_cases > 0:
-    st.markdown("---")
-    st.markdown("### 🩺 Insight ทางคลินิก & ข้อเสนอเชิงกลยุทธ์")
+        if total_cases > 0:
+        st.markdown("---")
+        st.markdown("### 🩺 Insight ทางคลินิก & ข้อเสนอเชิงกลยุทธ์")
 
     # 🔹 ตัวอย่างการสรุปเชิงอัตโนมัติ
-        if not df_log.empty and "predicted_severity" in df_log.columns:
+            if not df_log.empty and "predicted_severity" in df_log.columns:
             top_severity = df_log["predicted_severity"].value_counts().idxmax()
 
             if top_severity == "เสี่ยงมาก":
