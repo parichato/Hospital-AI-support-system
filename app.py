@@ -105,13 +105,6 @@ model, encoders, features, kmeans, scaler, rules_minor, rules_severe, rules_fata
 
 
 # ----------------------------------------------------------
-# ✅ เรียกใช้งาน
-# ----------------------------------------------------------
-model, encoders, features, kmeans, scaler, rules_minor, rules_severe, rules_fatal = load_all()
-
-
-
-# ----------------------------------------------------------
 # 🧩 Manual Mappings
 # ----------------------------------------------------------
 activity_mapping = {
