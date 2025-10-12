@@ -516,7 +516,7 @@ with tab4:
         st.markdown("### 🩺 Insight ทางคลินิก & ข้อเสนอเชิงกลยุทธ์")
 
     # 🔹 ตัวอย่างการสรุปเชิงอัตโนมัติ
-            if not df_log.empty and "predicted_severity" in df_log.columns:
+        if not df_log.empty and "predicted_severity" in df_log.columns:
             top_severity = df_log["predicted_severity"].value_counts().idxmax()
 
             if top_severity == "เสี่ยงมาก":
